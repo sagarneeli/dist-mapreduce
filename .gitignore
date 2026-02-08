@@ -1,0 +1,24 @@
+# Binaries
+bin/
+*.exe
+*.test
+
+# Logs
+*.log
+
+# Data
+data/output/
+data/intermediate/
+mr-*
+mr-out-*
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+
+# Temporary
+tmp/

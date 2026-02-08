@@ -1,0 +1,71 @@
+name: CI Pipeline
+
+on:
+    push:
+        branches: [main, master]
+    pull_request:
+        branches: [main, master]
+
+jobs:
+    lint:
+        name: Lint
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-go@v5
+              with:
+                  go-version: "1.24"
+                  cache: false
+            - name: golangci-lint
+              uses: golangci/golangci-lint-action@v6
+              with:
+                  version: latest
+                  args: --timeout=5m
+
+    test:
+        name: Test
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-go@v5
+              with:
+                  go-version: "1.24"
+            - name: Run Tests
+              run: go test -v -race ./...
+
+    build:
+        name: Build Binaries
+        runs-on: ubuntu-latest
+        needs: [lint, test]
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-go@v5
+              with:
+                  go-version: "1.24"
+            - name: Build Coordinator
+              run: go build -v -o bin/coordinator ./cmd/coordinator
+            - name: Build Worker
+              run: go build -v -o bin/worker ./cmd/worker
+
+    docker:
+        name: Build Docker Images
+        runs-on: ubuntu-latest
+        needs: [lint, test]
+        steps:
+            - uses: actions/checkout@v4
+            - name: Set up Docker Buildx
+              uses: docker/setup-buildx-action@v3
+            - name: Build Coordinator Image
+              uses: docker/build-push-action@v5
+              with:
+                  context: .
+                  file: Dockerfile.coordinator
+                  push: false
+                  tags: dist-mapreduce-coordinator:latest, dist-mapreduce-coordinator:${{ github.sha }}
+            - name: Build Worker Image
+              uses: docker/build-push-action@v5
+              with:
+                  context: .
+                  file: Dockerfile.worker
+                  push: false
+                  tags: dist-mapreduce-worker:latest, dist-mapreduce-worker:${{ github.sha }}

@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  coordinator:
+    build:
+      context: .
+      dockerfile: Dockerfile.coordinator
+    ports:
+      - "1234:1234"
+      - "8080:8080"
+    volumes:
+      - ./data:/app/data
+    networks:
+      - mr-network
+    command: ["/app/coordinator"]
+
+  worker-1:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    depends_on:
+      - coordinator
+    volumes:
+      - ./data:/app/data
+    networks:
+      - mr-network
+    environment:
+      - COORDINATOR_HOST=coordinator
+    command: ["/app/worker"]
+
+  worker-2:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    depends_on:
+      - coordinator
+    volumes:
+      - ./data:/app/data
+    networks:
+      - mr-network
+    environment:
+      - COORDINATOR_HOST=coordinator
+    command: ["/app/worker"]
+
+networks:
+  mr-network:
+    driver: bridge
