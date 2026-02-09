@@ -92,13 +92,20 @@ func (c *Coordinator) GetJobStatus(jobID int) (*Job, bool) {
 
 // Start starts the RPC server.
 func (c *Coordinator) Start() {
-	rpc.Register(c)
+	err := rpc.Register(c)
+	if err != nil {
+		log.Fatal("rpc register error:", err)
+	}
 	rpc.HandleHTTP()
 	l, e := net.Listen("tcp", ":1234")
 	if e != nil {
 		log.Fatal("listen error:", e)
 	}
-	go http.Serve(l, nil)
+	go func() {
+		if err := http.Serve(l, nil); err != nil {
+			log.Fatal("http serve error:", err)
+		}
+	}()
 }
 
 // GetTask assigns a task to a worker.
@@ -128,12 +135,12 @@ func (c *Coordinator) GetTask(args *common.TaskArgs, reply *common.TaskReply) er
 				reply.NReduce = job.NReduce
 				reply.NMap = len(job.Files)
 				reply.Timestamp = time.Now()
-				
+
 				// HACK: We need to tell the worker WHICH job this task belongs to if we want full multi-tenancy.
-				// However, the worker currently writes `mr-X-Y` files based on task ID. If multiple jobs run, 
+				// However, the worker currently writes `mr-X-Y` files based on task ID. If multiple jobs run,
 				// they will overwrite each other's intermediate files unless we scope them by job ID.
-				// For this portfolio refactor, let's assume we handle output naming correctly or just accept conflict risk 
-				// if jobs run concurrently. 
+				// For this portfolio refactor, let's assume we handle output naming correctly or just accept conflict risk
+				// if jobs run concurrently.
 				// Better fix: Prepend JobID to filenames in worker logic. But that requires changing RPC protocol.
 				// Let's stick to simplest path: Coordinator supports multiple jobs, but maybe we only run one at a time effectively?
 				// Actually, reply structure doesn't have JobID. We should add it to TaskReply in rpc.go first.
@@ -142,10 +149,10 @@ func (c *Coordinator) GetTask(args *common.TaskArgs, reply *common.TaskReply) er
 				// For now, let's assume one active job or ignore collision risk for the first pass.
 				// Actually, I should update rpc.go. I'll do that concurrently.
 				// For this step, let's create the logic assuming rpc.go will have JobID soon.
-				
+
 				// Let's create a temporary field in common.TaskReply? No, invalid.
 				// Use a dedicated field if updated. I'll update rpc.go in parallel.
-				
+
 				return nil
 			}
 		}
@@ -162,9 +169,9 @@ func (c *Coordinator) GetTask(args *common.TaskArgs, reply *common.TaskReply) er
 		if !allMapsDone {
 			// This job is blocked on maps. Move to next job or return Wait?
 			// If we return Wait here, we block OTHER jobs that might be ready for Reduce.
-			// Ideally we continue loop. But for simplicity, let's just return Wait if we found work but it's not ready. 
+			// Ideally we continue loop. But for simplicity, let's just return Wait if we found work but it's not ready.
 			// Actually, if we return Wait, the worker sleeps. We should check NEXT job.
-			continue 
+			continue
 		}
 
 		// 2. Assign Reduce Tasks
@@ -191,7 +198,7 @@ func (c *Coordinator) GetTask(args *common.TaskArgs, reply *common.TaskReply) er
 				break
 			}
 		}
-		
+
 		if allReducesDone {
 			job.Status = "COMPLETED"
 			log.Printf("Job %d COMPLETED", job.ID)
@@ -212,24 +219,24 @@ func (c *Coordinator) ReportTask(args *common.ReportTaskArgs, reply *common.Repo
 	// That's risky if TaskIDs overlap between jobs (they do, 0..N).
 	// We MUST update RPC definitions first.
 	// I will update this code assuming rpc.go has JobID.
-	
+
 	// Assuming args.JobID exists... wait, I can't assume that if it doesn't compile.
-	// I should probably update rpc.go FIRST. 
+	// I should probably update rpc.go FIRST.
 	// But let's write this to be compatible with a loop search for now (inefficient but safe if worker ID is unique per task assignment... no it's not).
 	// Actually, worker ID is per worker process.
 	// We really need JobID in RPC.
-	
+
 	// Implementation Strategy:
 	// 1. Update rpc.go to include JobID.
 	// 2. Update worker.go to handle JobID.
 	// 3. Update coordinator.go (this file).
-	
+
 	// Since I'm editing this file NOW, I'll write it as if JobID is available, and then update rpc.go immediately after.
 	// Go compiler will fail until I update rpc.go, which is fine in a multi-step change.
-	
-	// However, I can't add fields to struct from here. 
+
+	// However, I can't add fields to struct from here.
 	// I'll assume args has JobID.
-	
+
 	job, ok := c.jobs[args.JobID]
 	if !ok {
 		return fmt.Errorf("job not found")
@@ -245,7 +252,7 @@ func (c *Coordinator) ReportTask(args *common.ReportTaskArgs, reply *common.Repo
 	if args.TaskID < 0 || args.TaskID >= len(tasks) {
 		return fmt.Errorf("invalid task ID")
 	}
-	
+
 	// Verify worker ID matches
 	if tasks[args.TaskID].WorkerID == args.WorkerID {
 		if args.TaskType == common.TaskTypeMap {
@@ -255,11 +262,11 @@ func (c *Coordinator) ReportTask(args *common.ReportTaskArgs, reply *common.Repo
 		}
 		reply.Ack = true
 	}
-	
+
 	return nil
 }
 
-// Done checks if ALL jobs are finished? 
+// Done checks if ALL jobs are finished?
 // Or maybe specific job?
 // The original main loop checks c.Done().
 // We should probably expose active job count or similar.
@@ -268,14 +275,14 @@ func (c *Coordinator) Done() bool {
 	defer c.mu.Unlock()
 
 	if len(c.jobs) == 0 {
-		return false // Keep running if no jobs? Or done? 
+		return false // Keep running if no jobs? Or done?
 		// For the CLI behavior, we want to exit when the initial job is done.
 		// But for API server, we want to run forever.
 		// Let's change semantic: Done() returns true only if NO jobs are running AND we decide to stop.
 		// Actually, for the API server refactor, main.go will likely run forever.
 		// So this method might be deprecated or just check if "initial job" is done if we want to support legacy CLI mode.
 	}
-	
+
 	allDone := true
 	for _, job := range c.jobs {
 		if job.Status != "COMPLETED" && job.Status != "FAILED" {
@@ -285,4 +292,3 @@ func (c *Coordinator) Done() bool {
 	}
 	return allDone
 }
-

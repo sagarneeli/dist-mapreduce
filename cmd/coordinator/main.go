@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 
-
 	"github.com/sagarneeli/dist-mapreduce/internal/api"
 	"github.com/sagarneeli/dist-mapreduce/internal/coordinator"
 )

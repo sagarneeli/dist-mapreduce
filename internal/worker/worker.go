@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"hash/fnv"
-	"io/ioutil"
 	"log"
 	"net/rpc"
 	"os"
@@ -75,7 +74,7 @@ func Worker(coordinatorHost string) {
 
 func doMap(jobID int, taskID int, filename string, nReduce int, mapF func(string, string) []KeyValue) {
 	log.Printf("Starting Map Task %d for Job %d file %s", taskID, jobID, filename)
-	content, err := ioutil.ReadFile(filename)
+	content, err := os.ReadFile(filename)
 	if err != nil {
 		log.Fatalf("cannot read %v", filename)
 	}
@@ -94,7 +93,9 @@ func doMap(jobID int, taskID int, filename string, nReduce int, mapF func(string
 		file, _ := os.Create(oname)
 		enc := json.NewEncoder(file)
 		for _, kv := range buckets[i] {
-			enc.Encode(&kv)
+			if err := enc.Encode(&kv); err != nil {
+				log.Fatalf("cannot encode %v: %v", kv, err)
+			}
 		}
 		file.Close()
 	}

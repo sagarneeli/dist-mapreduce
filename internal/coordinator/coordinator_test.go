@@ -48,7 +48,10 @@ func TestCoordinatorSequence(t *testing.T) {
 
 	// 3. Get another task (Should be the second Map)
 	reply2 := &common.TaskReply{}
-	c.GetTask(args, reply2)
+	err = c.GetTask(args, reply2)
+	if err != nil {
+		t.Fatalf("GetTask failed: %v", err)
+	}
 	if reply2.TaskType != common.TaskTypeMap {
 		t.Errorf("Expected second Map task, got %v", reply2.TaskType)
 	}
@@ -62,7 +65,10 @@ func TestCoordinatorSequence(t *testing.T) {
 
 	// 5. Get task (Should be Reduce, since all Maps are done)
 	reply3 := &common.TaskReply{}
-	c.GetTask(args, reply3)
+	err = c.GetTask(args, reply3)
+	if err != nil {
+		t.Fatalf("GetTask failed: %v", err)
+	}
 	if reply3.TaskType != common.TaskTypeReduce {
 		t.Errorf("Expected Reduce task, got %v", reply3.TaskType)
 	}
@@ -98,7 +104,10 @@ func TestCoordinator_Wait(t *testing.T) {
 	// Request another task -> Should be Wait (-1) because map not done yet
 	args := &common.TaskArgs{WorkerID: "w2"}
 	reply := &common.TaskReply{}
-	c.GetTask(args, reply)
+	err := c.GetTask(args, reply)
+	if err != nil {
+		t.Fatalf("GetTask failed: %v", err)
+	}
 
 	if reply.TaskType != -1 {
 		t.Errorf("Expected Wait (-1), got %v", reply.TaskType)

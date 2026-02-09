@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -39,11 +40,11 @@ type SubmitJobResponse struct {
 }
 
 type JobStatusResponse struct {
-	ID        int      `json:"id"`
-	Status    string   `json:"status"`
-	Files     int      `json:"files_count"`
-	MapDone   int      `json:"map_tasks_completed"`
-	ReduceDone int     `json:"reduce_tasks_completed"`
+	ID         int    `json:"id"`
+	Status     string `json:"status"`
+	Files      int    `json:"files_count"`
+	MapDone    int    `json:"map_tasks_completed"`
+	ReduceDone int    `json:"reduce_tasks_completed"`
 }
 
 func (s *Server) handleJobs(w http.ResponseWriter, r *http.Request) {
@@ -66,7 +67,9 @@ func (s *Server) handleJobs(w http.ResponseWriter, r *http.Request) {
 	jobID := s.coordinator.SubmitJob(req.Files, req.NReduce)
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(SubmitJobResponse{JobID: jobID})
+	if err := json.NewEncoder(w).Encode(SubmitJobResponse{JobID: jobID}); err != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+	}
 }
 
 func (s *Server) handleJobStatus(w http.ResponseWriter, r *http.Request) {
@@ -118,10 +121,15 @@ func (s *Server) handleJobStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+	}
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("OK"))
+	// w.Write value check
+	if _, err := w.Write([]byte("OK")); err != nil {
+		log.Printf("Failed to write response: %v", err)
+	}
 }
