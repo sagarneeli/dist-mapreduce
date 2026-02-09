@@ -1,4 +1,4 @@
-# dist-mapreduce: Distributed MapReduce System in Go
+# Distributed MapReduce System in Go
 
 ## Overview
 This project is a modern implementation of a Distributed MapReduce system, written in **Go**. It serves as a comprehensive modernization of a legacy Java/Hadoop project, re-architected to showcase **Distributed Systems** concepts, **backend engineering** skills, and **cloud-native** readiness (Docker/Containerization).
